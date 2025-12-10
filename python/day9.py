@@ -29,14 +29,112 @@ def solve(input_path: str | Path):
     print(f"Part 1: {largest}")
 
     # PART 2
-    part2_v1(red_tiles)
+    part2_v2(red_tiles)
+
+
+# Improved solution, confident this is correct this time
+# There might still be a faster replacement for the check for
+# edges crossing the rect
+def part2_v2(red_tiles: list[list[int]]):
+    num_tiles = len(red_tiles)
+
+    # Returns True iff the given tile is inside the polygon,
+    # or on one of its edges.
+    def is_tile_inside_or_on_polygon(x: int, y: int) -> bool:
+        # Travel from tile in one direction (+x chosen here),
+        # count how many polygon edges it crosses.
+        crossings = 0
+
+        for i in range(num_tiles):
+            v1x, v1y = red_tiles[i]
+            v2x, v2y = red_tiles[(i + 1) % num_tiles]
+            # Order so that 1 has the smaller coord
+            v1x, v2x = sorted([v1x, v2x])
+            v1y, v2y = sorted([v1y, v2y])
+
+            # Check if point lies on the axis-aligned segment from v1 to v2
+            # Vertical edge
+            if (
+                x == v1x == v2x
+                and v1y <= y <= v2y
+                or y == v1y == v2y
+                and v1x <= x <= v2x
+            ):
+                return True
+
+            # If the tile's y coord is inside the edge's y span (exclusive),
+            # and the edge is on same or greater x, count as a crossing
+            if v1y < y < v2y and v1x >= x:
+                crossings += 1
+
+        # Tile is inside if odd number of crossings
+        return (crossings % 2) == 1
+
+    # Returns True iff any edge of the polygon crosses inside the rect
+    # formed by the given tiles (only overlapping on the side doesn't count).
+    def any_edge_crosses_rect(p_min: tuple[int, int], p_max: tuple[int, int]) -> bool:
+        for i in range(num_tiles):
+            edge_x1, edge_y1 = red_tiles[i]
+            edge_x2, edge_y2 = red_tiles[(i + 1) % num_tiles]
+            edge_x_min, edge_x_max = sorted([edge_x1, edge_x2])
+            edge_y_min, edge_y_max = sorted([edge_y1, edge_y2])
+
+            if (
+                edge_x_min < p_max[0]
+                and edge_x_max > p_min[0]
+                and edge_y_min < p_max[1]
+                and edge_y_max > p_min[1]
+            ):
+                return True
+
+        return False
+
+    largest = 0
+    best_pair = None
+
+    # For each possible pair of red tiles...
+    for t1, t2 in combinations(red_tiles, 2):
+        x1, y1 = t1
+        x2, y2 = t2
+        # Order their coords
+        x_min, x_max = sorted([x1, x2])
+        y_min, y_max = sorted([y1, y2])
+
+        # Compute the area of the formed rect.
+        area = (x_max - x_min + 1) * (y_max - y_min + 1)
+        # If it's smaller or equal to largest so far,
+        # no need to check it, continue
+        if area <= largest:
+            continue
+
+        # Check if any polygon edge crosses inside the rect.
+        # If so, it's not valid.
+        if any_edge_crosses_rect((x_min, y_min), (x_max, y_max)):
+            continue
+
+        # Still need to deal with concave cases like (2, 5), (9, 7) in example
+        # Since no edge crosses the rect, it must be entirely inside
+        # or entirely outside, so just check the midpoint
+        # (Using int here, since polygon edges should have at least a tile
+        # of space between)
+        if not is_tile_inside_or_on_polygon((x1 + x2) // 2, (y1 + y2) // 2):
+            continue
+
+        # This is a valid rect.
+        # Already confirmed this is larger, record it
+        largest = area
+        best_pair = (x1, y1), (x2, y2)
+
+    # Print result
+    print(f"Part 2: {largest}, formed by {best_pair}")
 
 
 def cross(v1: tuple[int, int], v2: tuple[int, int]) -> int:
     return v1[0] * v2[1] - v1[1] * v2[0]
 
 
-# First solution (gets the right answer, but bad...very convoluted and inefficient, might be wrong)
+# First solution (gets the right answer, but bad...quite convoluted and inefficient,
+# might not be fully correct)
 def part2_v1(red_tiles: list[list[int]]):
     num_tiles = len(red_tiles)
 
